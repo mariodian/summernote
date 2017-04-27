@@ -6,7 +6,7 @@
  * Copyright 2013-2016 Alan Hong. and other contributors
  * summernote may be freely distributed under the MIT license./
  *
- * Date: 2017-04-27T17:39Z
+ * Date: 2017-04-27T18:05Z
  */
 (function (factory) {
   /* global define */
@@ -2092,7 +2092,8 @@
         maximumFileSize: 'Maximum file size',
         maximumFileSizeError: 'Maximum file size exceeded.',
         url: 'Image URL',
-        remove: 'Remove Image'
+        remove: 'Remove Image',
+        removeConfirm: 'Are you sure you want to delete this image?'
       },
       video: {
         video: 'Video',
@@ -4328,10 +4329,6 @@
 
       if (options.onCreateLink) {
         linkUrl = options.onCreateLink(linkUrl);
-      } else {
-        // if url doesn't match an URL schema, set http:// as default
-        linkUrl = /^[A-Za-z][A-Za-z0-9+-.]*\:[\/\/]?/.test(linkUrl) ?
-        linkUrl : 'http://' + linkUrl;
       }
 
       var anchors = [];
@@ -4475,8 +4472,12 @@
      * remove media object
      */
     this.removeMedia = this.wrapCommand(function () {
-      var $target = $(this.restoreTarget()).detach();
-      context.triggerEvent('media.delete', $target, $editable);
+      console.log(lang.image.removeConfirm);
+      
+      if (confirm(lang.image.removeConfirm)) {
+        var $target = $(this.restoreTarget()).detach();
+        context.triggerEvent('media.delete', $target, $editable);
+      }
     });
 
     /**

@@ -725,9 +725,11 @@ define([
     /**
      * remove media object
      */
-    this.removeMedia = this.wrapCommand(function () {
-      var $target = $(this.restoreTarget()).detach();
-      context.triggerEvent('media.delete', $target, $editable);
+    this.removeMedia = this.wrapCommand(function () {      
+      if (confirm(lang.image.removeConfirm)) {
+        var $target = $(this.restoreTarget()).detach();
+        context.triggerEvent('media.delete', $target, $editable);
+      }
     });
 
     /**

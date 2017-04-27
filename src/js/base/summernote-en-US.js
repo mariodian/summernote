@@ -38,7 +38,8 @@ define([
         maximumFileSize: 'Maximum file size',
         maximumFileSizeError: 'Maximum file size exceeded.',
         url: 'Image URL',
-        remove: 'Remove Image'
+        remove: 'Remove Image',
+        removeConfirm: 'Are you sure you want to delete this image?'
       },
       video: {
         video: 'Video',

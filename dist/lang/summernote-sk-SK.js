@@ -21,7 +21,8 @@
         floatNone: 'Bez zarovnania',
         dragImageHere: 'Pretiahnuť sem obrázok',
         selectFromFiles: 'Vybrať súbor',
-        url: 'URL obrázku'
+        url: 'URL obrázku',
+        removeConfirm: 'Naozaj chcete zmazať tento obrázok?'
       },
       video: {
         video: 'Video',
