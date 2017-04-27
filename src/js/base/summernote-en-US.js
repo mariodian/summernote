@@ -65,7 +65,7 @@ define([
       },
       style: {
         style: 'Style',
-        normal: 'Normal',
+        p: 'Normal',
         blockquote: 'Quote',
         pre: 'Code',
         h1: 'Header 1',

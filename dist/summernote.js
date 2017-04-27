@@ -1,12 +1,12 @@
 /**
- * Super simple wysiwyg editor v0.8.2
+ * Super simple wysiwyg editor v0.8.3
  * http://summernote.org/
  *
  * summernote.js
  * Copyright 2013-2016 Alan Hong. and other contributors
  * summernote may be freely distributed under the MIT license./
  *
- * Date: 2016-08-07T05:11Z
+ * Date: 2017-04-27T17:39Z
  */
 (function (factory) {
   /* global define */
@@ -1621,6 +1621,8 @@
       Object.keys(this.memos).forEach(function (key) {
         self.removeMemo(key);
       });
+      // trigger custom onDestroy callback
+      this.triggerEvent('destroy', this);
     };
 
     this.code = function (html) {
@@ -2106,7 +2108,8 @@
         edit: 'Edit',
         textToDisplay: 'Text to display',
         url: 'To what URL should this link go?',
-        openInNewWindow: 'Open in new window'
+        openInNewWindow: 'Open in new window',
+        noFollow: 'Add rel="nofollow" to link'
       },
       table: {
         table: 'Table'
@@ -2116,7 +2119,7 @@
       },
       style: {
         style: 'Style',
-        normal: 'Normal',
+        p: 'Normal',
         blockquote: 'Quote',
         pre: 'Code',
         h1: 'Header 1',
@@ -4314,6 +4317,7 @@
       var linkUrl = linkInfo.url;
       var linkText = linkInfo.text;
       var isNewWindow = linkInfo.isNewWindow;
+      var isNoFollow = linkInfo.isNoFollow;
       var rng = linkInfo.range || this.createRange();
       var isTextChanged = rng.toString() !== linkText;
 
@@ -4324,6 +4328,10 @@
 
       if (options.onCreateLink) {
         linkUrl = options.onCreateLink(linkUrl);
+      } else {
+        // if url doesn't match an URL schema, set http:// as default
+        linkUrl = /^[A-Za-z][A-Za-z0-9+-.]*\:[\/\/]?/.test(linkUrl) ?
+        linkUrl : 'http://' + linkUrl;
       }
 
       var anchors = [];
@@ -4340,15 +4348,16 @@
       }
 
       $.each(anchors, function (idx, anchor) {
-        // if url doesn't match an URL schema, set http:// as default
-        linkUrl = /^[A-Za-z][A-Za-z0-9+-.]*\:[\/\/]?/.test(linkUrl) ?
-          linkUrl : 'http://' + linkUrl;
-
         $(anchor).attr('href', linkUrl);
         if (isNewWindow) {
           $(anchor).attr('target', '_blank');
         } else {
           $(anchor).removeAttr('target');
+        }
+        if (isNoFollow) {
+          $(anchor).attr('rel', 'nofollow');
+        } else {
+          $(anchor).removeAttr('rel');
         }
       });
 
@@ -4384,6 +4393,7 @@
         range: rng,
         text: rng.toString(),
         isNewWindow: $anchor.length ? $anchor.attr('target') === '_blank' : false,
+        isNoFollow: $anchor.length ? $anchor.attr('rel') === 'nofollow' : false,
         url: $anchor.length ? $anchor.attr('href') : ''
       };
     };
@@ -4833,6 +4843,7 @@
 
     this.initialize = function () {
       if (options.airMode || options.disableResizeEditor) {
+        this.destroy();
         return;
       }
 
@@ -5901,9 +5912,12 @@
                  '</div>' +
                  (!options.disableLinkTarget ?
                    '<div class="checkbox">' +
-                     '<label>' + '<input type="checkbox" checked> ' + lang.link.openInNewWindow + '</label>' +
+                     '<label>' + '<input class="note-link-new-window" type="checkbox" checked> ' + lang.link.openInNewWindow + '</label>' +
                    '</div>' : ''
-                 );
+                 ) +
+                 '<div class="checkbox">' +
+                   '<label>' + '<input class="note-link-nofollow" type="checkbox" checked> ' + lang.link.noFollow + '</label>' +
+                 '</div>';
       var footer = '<button href="#" class="btn btn-primary note-link-btn disabled" disabled>' + lang.link.insert + '</button>';
 
       this.$dialog = ui.dialog({
@@ -5946,7 +5960,8 @@
         var $linkText = self.$dialog.find('.note-link-text'),
         $linkUrl = self.$dialog.find('.note-link-url'),
         $linkBtn = self.$dialog.find('.note-link-btn'),
-        $openInNewWindow = self.$dialog.find('input[type=checkbox]');
+        $openInNewWindow = self.$dialog.find('.note-link-new-window'),
+        $noFollow = self.$dialog.find('.note-link-nofollow');
 
         ui.onDialogShown(self.$dialog, function () {
           context.triggerEvent('dialog.shown');
@@ -5987,6 +6002,7 @@
           self.bindEnterKey($linkText, $linkBtn);
 
           $openInNewWindow.prop('checked', linkInfo.isNewWindow);
+          $noFollow.prop('checked', linkInfo.isNoFollow);
 
           $linkBtn.one('click', function (event) {
             event.preventDefault();
@@ -5995,7 +6011,8 @@
               range: linkInfo.range,
               url: $linkUrl.val(),
               text: $linkText.val(),
-              isNewWindow: $openInNewWindow.is(':checked')
+              isNewWindow: $openInNewWindow.is(':checked'),
+              isNoFollow: $noFollow.is(':checked')
             });
             self.$dialog.modal('hide');
           });
@@ -6461,7 +6478,7 @@
 
       var body = [
         '<p class="text-center">',
-        '<a href="http://summernote.org/" target="_blank">Summernote 0.8.2</a> · ',
+        '<a href="http://summernote.org/" target="_blank">Summernote 0.8.3</a> · ',
         '<a href="https://github.com/summernote/summernote" target="_blank">Project</a> · ',
         '<a href="https://github.com/summernote/summernote/issues" target="_blank">Issues</a>',
         '</p>'
@@ -6806,7 +6823,7 @@
 
 
   $.summernote = $.extend($.summernote, {
-    version: '0.8.2',
+    version: '0.8.3',
     ui: ui,
     dom: dom,
 
