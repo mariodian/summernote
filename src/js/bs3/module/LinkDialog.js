@@ -22,7 +22,9 @@ define([
                  '</div>' +
                  (!options.disableLinkTarget ?
                    '<div class="checkbox">' +
-                     '<label>' + '<input class="note-link-new-window" type="checkbox" checked> ' + lang.link.openInNewWindow + '</label>' +
+                     '<label for="sn-checkbox-open-in-new-window">' +
+                       '<input type="checkbox" id="sn-checkbox-open-in-new-window" checked />' + lang.link.openInNewWindow +
+                     '</label>' +
                    '</div>' : ''
                  ) +
                  '<div class="checkbox">' +
@@ -111,8 +113,12 @@ define([
           self.bindEnterKey($linkUrl, $linkBtn);
           self.bindEnterKey($linkText, $linkBtn);
 
-          $openInNewWindow.prop('checked', linkInfo.isNewWindow);
           $noFollow.prop('checked', linkInfo.isNoFollow);
+
+          var isChecked = linkInfo.isNewWindow !== undefined ?
+            linkInfo.isNewWindow : context.options.linkTargetBlank;
+
+          $openInNewWindow.prop('checked', isChecked);
 
           $linkBtn.one('click', function (event) {
             event.preventDefault();

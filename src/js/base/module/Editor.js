@@ -447,11 +447,20 @@ define([
      *
      * @param {String} tagName
      */
-    this.formatBlock = this.wrapCommand(function (tagName) {
+    this.formatBlock = this.wrapCommand(function (tagName, $target) {
+      var onApplyCustomStyle = context.options.callbacks.onApplyCustomStyle;
+      if (onApplyCustomStyle) {
+        onApplyCustomStyle.call(this, $target, context, this.onFormatBlock);
+      } else {
+        this.onFormatBlock(tagName);
+      }
+    });
+
+    this.onFormatBlock = function (tagName) {
       // [workaround] for MSIE, IE need `<`
       tagName = agent.isMSIE ? '<' + tagName + '>' : tagName;
       document.execCommand('FormatBlock', false, tagName);
-    });
+    };
 
     this.formatPara = function () {
       this.formatBlock('P');
@@ -639,14 +648,19 @@ define([
 
       // Get the first anchor on range(for edit).
       var $anchor = $(list.head(rng.nodes(dom.isAnchor)));
-
-      return {
+      var linkInfo = {
         range: rng,
         text: rng.toString(),
-        isNewWindow: $anchor.length ? $anchor.attr('target') === '_blank' : false,
         isNoFollow: $anchor.length ? $anchor.attr('rel') === 'nofollow' : false,
         url: $anchor.length ? $anchor.attr('href') : ''
       };
+
+      // Define isNewWindow when anchor exists.
+      if ($anchor.length) {
+        linkInfo.isNewWindow = $anchor.attr('target') === '_blank';
+      }
+
+      return linkInfo;
     };
 
     /**
@@ -725,7 +739,7 @@ define([
     /**
      * remove media object
      */
-    this.removeMedia = this.wrapCommand(function () {      
+    this.removeMedia = this.wrapCommand(function () {
       if (confirm(lang.image.removeConfirm)) {
         var $target = $(this.restoreTarget()).detach();
         context.triggerEvent('media.delete', $target, $editable);
