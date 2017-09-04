@@ -12,20 +12,21 @@ define([
   'summernote/base/module/AutoLink',
   'summernote/base/module/AutoSync',
   'summernote/base/module/Placeholder',
-  'summernote/bs3/module/Buttons',
-  'summernote/bs3/module/Toolbar',
-  'summernote/bs3/module/LinkDialog',
-  'summernote/bs3/module/LinkPopover',
-  'summernote/bs3/module/ImageDialog',
-  'summernote/bs3/module/ImagePopover',
-  'summernote/bs3/module/VideoDialog',
-  'summernote/bs3/module/HelpDialog',
-  'summernote/bs3/module/AirPopover',
-  'summernote/bs3/module/HintPopover'
+  'summernote/base/module/Buttons',
+  'summernote/base/module/Toolbar',
+  'summernote/base/module/LinkDialog',
+  'summernote/base/module/LinkPopover',
+  'summernote/base/module/ImageDialog',
+  'summernote/base/module/ImagePopover',
+  'summernote/base/module/TablePopover',
+  'summernote/base/module/VideoDialog',
+  'summernote/base/module/HelpDialog',
+  'summernote/base/module/AirPopover',
+  'summernote/base/module/HintPopover'
 ], function (
   ui, dom, lang,
   Editor, Clipboard, Dropzone, Codeview, Statusbar, Fullscreen, Handle, AutoLink, AutoSync, Placeholder,
-  Buttons, Toolbar, LinkDialog, LinkPopover, ImageDialog, ImagePopover, VideoDialog, HelpDialog, AirPopover, HintPopover
+  Buttons, Toolbar, LinkDialog, LinkPopover, ImageDialog, ImagePopover, TablePopover, VideoDialog, HelpDialog, AirPopover, HintPopover
 ) {
 
   $.summernote = $.extend($.summernote, {
@@ -56,6 +57,7 @@ define([
         'linkPopover': LinkPopover,
         'imageDialog': ImageDialog,
         'imagePopover': ImagePopover,
+        'tablePopover': TablePopover,
         'videoDialog': VideoDialog,
         'helpDialog': HelpDialog,
         'airPopover': AirPopover
@@ -86,6 +88,10 @@ define([
         ],
         link: [
           ['link', ['linkDialogShow', 'unlink']]
+        ],
+        table: [
+          ['add', ['addRowDown', 'addRowUp', 'addColLeft', 'addColRight']],
+          ['delete', ['deleteRow', 'deleteCol', 'deleteTable']]
         ],
         air: [
           ['color', ['color']],
@@ -231,6 +237,12 @@ define([
         'alignJustify': 'note-icon-align-justify',
         'alignLeft': 'note-icon-align-left',
         'alignRight': 'note-icon-align-right',
+        'rowBelow': 'note-icon-row-below',
+        'colBefore': 'note-icon-col-before',
+        'colAfter': 'note-icon-col-after',
+        'rowAbove': 'note-icon-row-above',
+        'rowRemove': 'note-icon-row-remove',
+        'colRemove': 'note-icon-col-remove',
         'indent': 'note-icon-align-indent',
         'outdent': 'note-icon-align-outdent',
         'arrowsAlt': 'note-icon-arrows-alt',
@@ -246,7 +258,7 @@ define([
         'link': 'note-icon-link',
         'unlink': 'note-icon-chain-broken',
         'magic': 'note-icon-magic',
-        'menuCheck': 'note-icon-check',
+        'menuCheck': 'note-icon-menu-check',
         'minus': 'note-icon-minus',
         'orderedlist': 'note-icon-orderedlist',
         'pencil': 'note-icon-pencil',
