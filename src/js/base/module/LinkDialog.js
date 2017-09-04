@@ -23,9 +23,17 @@ define([
                    'note-input" type="text" value="http://" />' +
                  '</div>' +
               (!options.disableLinkTarget ?
-                $('<div/>').append(ui.checkbox({ id: 'sn-checkbox-open-in-new-window', text: lang.link.openInNewWindow, checked: true }).render()).html()
+                $('<div/>').append(ui.checkbox({
+                  id: 'sn-checkbox-open-in-new-window',
+                  text: lang.link.openInNewWindow,
+                  checked: true
+                }).render()).html()
               : '') +
-              $('<div/>').append(ui.checkbox({ id: 'sn-checkbox-link-nofollow', text: lang.link.noFollow, checked: false }).render()).html();
+              $('<div/>').append(ui.checkbox({
+                id: 'sn-checkbox-link-nofollow',
+                text: lang.link.noFollow,
+                checked: false
+              }).render()).html();
       var footer = '<button href="#" class="btn btn-primary note-btn note-btn-primary ' +
       'note-link-btn disabled" disabled>' + lang.link.insert + '</button>';
 
