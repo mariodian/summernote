@@ -10,7 +10,7 @@
         strikethrough: 'Prečiarknuté',
         subscript: 'Subscript',
         superscript: 'Superscript',
-        size: 'Veľkosť písma'
+        size: 'Veľkosť písma',
       },
       image: {
         image: 'Obrázok',
@@ -32,14 +32,14 @@
         maximumFileSizeError: 'Maximum file size exceeded.',
         url: 'URL obrázku',
         remove: 'Remove Image',
-        original: 'Original'
+        original: 'Original',
       },
       video: {
         video: 'Video',
         videoLink: 'Odkaz videa',
         insert: 'Vložiť video',
         url: 'URL videa?',
-        providers: '(YouTube, Vimeo, Vine, Instagram, DailyMotion alebo Youku)'
+        providers: '(YouTube, Vimeo, Vine, Instagram, DailyMotion alebo Youku)',
       },
       link: {
         link: 'Odkaz',
@@ -49,7 +49,8 @@
         textToDisplay: 'Zobrazovaný text',
         url: 'Na akú URL adresu má tento odkaz viesť?',
         openInNewWindow: 'Otvoriť v novom okne',
-        noFollow: 'Pridať rel="nofollow" do odkazu'
+        noFollow: 'Pridať rel="nofollow" do odkazu',
+        useProtocol: 'Use default protocol',
       },
       table: {
         table: 'Tabuľka',
@@ -59,10 +60,10 @@
         addColRight: 'Add column right',
         delRow: 'Delete row',
         delCol: 'Delete column',
-        delTable: 'Delete table'
+        delTable: 'Delete table',
       },
       hr: {
-        insert: 'Vložit vodorovnú čiaru'
+        insert: 'Vložit vodorovnú čiaru',
       },
       style: {
         style: 'Štýl',
@@ -74,16 +75,16 @@
         h3: 'Nadpis 3',
         h4: 'Nadpis 4',
         h5: 'Nadpis 5',
-        h6: 'Nadpis 6'
+        h6: 'Nadpis 6',
       },
       lists: {
         unordered: 'Odrážkový zoznam',
-        ordered: 'Číselný zoznam'
+        ordered: 'Číselný zoznam',
       },
       options: {
         help: 'Pomoc',
         fullscreen: 'Celá obrazovka',
-        codeview: 'HTML kód'
+        codeview: 'HTML kód',
       },
       paragraph: {
         paragraph: 'Odsek',
@@ -92,7 +93,7 @@
         left: 'Zarovnať doľava',
         center: 'Zarovnať na stred',
         right: 'Zarovnať doprava',
-        justify: 'Zarovnať obojstranne'
+        justify: 'Zarovnať obojstranne',
       },
       color: {
         recent: 'Aktuálna farba',
@@ -102,7 +103,7 @@
         transparent: 'Priehľadnosť',
         setTransparent: 'Nastaviť priehľadnosť',
         reset: 'Obnoviť',
-        resetToDefault: 'Obnoviť prednastavené'
+        resetToDefault: 'Obnoviť prednastavené',
       },
       shortcut: {
         shortcuts: 'Klávesové skratky',
@@ -110,7 +111,7 @@
         textFormatting: 'Formátovanie textu',
         action: 'Akcia',
         paragraphFormatting: 'Formátovanie odseku',
-        documentStyle: 'Štýl dokumentu'
+        documentStyle: 'Štýl dokumentu',
       },
       help: {
         'insertParagraph': 'Insert Paragraph',
@@ -139,16 +140,16 @@
         'formatH5': 'Change current block\'s format as H5',
         'formatH6': 'Change current block\'s format as H6',
         'insertHorizontalRule': 'Insert horizontal rule',
-        'linkDialog.show': 'Show Link Dialog'
+        'linkDialog.show': 'Show Link Dialog',
       },
       history: {
         undo: 'Krok vzad',
-        redo: 'Krok dopredu'
+        redo: 'Krok dopredu',
       },
       specialChar: {
         specialChar: 'SPECIAL CHARACTERS',
-        select: 'Select Special characters'
-      }
-    }
+        select: 'Select Special characters',
+      },
+    },
   });
 })(jQuery);

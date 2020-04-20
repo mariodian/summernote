@@ -5,6 +5,7 @@ const KEY_MAP = {
   'BACKSPACE': 8,
   'TAB': 9,
   'ENTER': 13,
+  'ESCAPE': 27,
   'SPACE': 32,
   'DELETE': 46,
 
@@ -42,7 +43,13 @@ const KEY_MAP = {
   'SLASH': 191,
   'LEFTBRACKET': 219,
   'BACKSLASH': 220,
-  'RIGHTBRACKET': 221
+  'RIGHTBRACKET': 221,
+
+  // Navigation
+  'HOME': 36,
+  'END': 35,
+  'PAGEUP': 33,
+  'PAGEDOWN': 34,
 };
 
 /**
@@ -66,7 +73,7 @@ export default {
       KEY_MAP.TAB,
       KEY_MAP.ENTER,
       KEY_MAP.SPACE,
-      KEY_MAP.DELETE
+      KEY_MAP.DELETE,
     ], keyCode);
   },
   /**
@@ -80,7 +87,21 @@ export default {
       KEY_MAP.LEFT,
       KEY_MAP.UP,
       KEY_MAP.RIGHT,
-      KEY_MAP.DOWN
+      KEY_MAP.DOWN,
+    ], keyCode);
+  },
+  /**
+   * @method isNavigation
+   *
+   * @param {Number} keyCode
+   * @return {Boolean}
+   */
+  isNavigation: (keyCode) => {
+    return lists.contains([
+      KEY_MAP.HOME,
+      KEY_MAP.END,
+      KEY_MAP.PAGEUP,
+      KEY_MAP.PAGEDOWN,
     ], keyCode);
   },
   /**
@@ -88,5 +109,5 @@ export default {
    * @property {String} nameFromCode.8 "BACKSPACE"
    */
   nameFromCode: func.invertObject(KEY_MAP),
-  code: KEY_MAP
+  code: KEY_MAP,
 };

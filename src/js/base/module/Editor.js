@@ -29,13 +29,15 @@ export default class Editor {
 
     this.editable = this.$editable[0];
     this.lastRange = null;
+    this.snapshot = null;
 
     this.style = new Style();
     this.table = new Table();
-    this.typing = new Typing();
+    this.typing = new Typing(context);
     this.bullet = new Bullet();
-    this.history = new History(this.$editable);
+    this.history = new History(context);
 
+    this.context.memo('help.escape', this.lang.help.escape);
     this.context.memo('help.undo', this.lang.help.undo);
     this.context.memo('help.redo', this.lang.help.redo);
     this.context.memo('help.tab', this.lang.help.tab);
@@ -53,7 +55,7 @@ export default class Editor {
     const commands = [
       'bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript',
       'justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull',
-      'formatBlock', 'removeFormat', 'backColor'
+      'formatBlock', 'removeFormat', 'backColor',
     ];
 
     for (let idx = 0, len = commands.length; idx < len; idx++) {
@@ -68,11 +70,17 @@ export default class Editor {
     }
 
     this.fontName = this.wrapCommand((value) => {
-      return this.fontStyling('font-family', "\'" + value + "\'");
+      return this.fontStyling('font-family', env.validFontName(value));
     });
 
     this.fontSize = this.wrapCommand((value) => {
-      return this.fontStyling('font-size', value + 'px');
+      const unit = this.currentStyle()['font-size-unit'];
+      return this.fontStyling('font-size', value + unit);
+    });
+
+    this.fontSizeUnit = this.wrapCommand((value) => {
+      const size = this.currentStyle()['font-size'];
+      return this.fontStyling('font-size', size + value);
     });
 
     for (let idx = 1; idx <= 6; idx++) {
@@ -82,7 +90,7 @@ export default class Editor {
         };
       })(idx);
       this.context.memo('help.formatH' + idx, this.lang.help['formatH' + idx]);
-    };
+    }
 
     this.insertParagraph = this.wrapCommand(() => {
       this.typing.insertParagraph(this.editable);
@@ -113,9 +121,9 @@ export default class Editor {
       if (this.isLimited($(node).text().length)) {
         return;
       }
-      const rng = this.createRange();
+      const rng = this.getLastRange();
       rng.insertNode(node);
-      range.createFromNodeAfter(node).select();
+      this.setLastRange(range.createFromNodeAfter(node).select());
     });
 
     /**
@@ -126,10 +134,11 @@ export default class Editor {
       if (this.isLimited(text.length)) {
         return;
       }
-      const rng = this.createRange();
+      const rng = this.getLastRange();
       const textNode = rng.insertNode(dom.createText(text));
-      range.create(textNode, dom.nodeLength(textNode)).select();
+      this.setLastRange(range.create(textNode, dom.nodeLength(textNode)).select());
     });
+
     /**
      * paste HTML
      * @param {String} markup
@@ -138,8 +147,9 @@ export default class Editor {
       if (this.isLimited(markup.length)) {
         return;
       }
-      const contents = this.createRange().pasteHTML(markup);
-      range.createFromNodeAfter(lists.last(contents)).select();
+      markup = this.context.invoke('codeview.purify', markup);
+      const contents = this.getLastRange().pasteHTML(markup);
+      this.setLastRange(range.createFromNodeAfter(lists.last(contents)).select());
     });
 
     /**
@@ -160,9 +170,9 @@ export default class Editor {
      * insert horizontal rule
      */
     this.insertHorizontalRule = this.wrapCommand(() => {
-      const hrNode = this.createRange().insertNode(dom.create('HR'));
+      const hrNode = this.getLastRange().insertNode(dom.create('HR'));
       if (hrNode.nextSibling) {
-        range.create(hrNode.nextSibling, 0).normalize().select();
+        this.setLastRange(range.create(hrNode.nextSibling, 0).normalize().select());
       }
     });
 
@@ -171,8 +181,8 @@ export default class Editor {
      * @param {String} value
      */
     this.lineHeight = this.wrapCommand((value) => {
-      this.style.stylePara(this.createRange(), {
-        lineHeight: value
+      this.style.stylePara(this.getLastRange(), {
+        lineHeight: value,
       });
     });
 
@@ -186,7 +196,12 @@ export default class Editor {
       const linkText = linkInfo.text;
       const isNewWindow = linkInfo.isNewWindow;
       const isNoFollow = linkInfo.isNoFollow;
-      let rng = linkInfo.range || this.createRange();
+      const checkProtocol = linkInfo.checkProtocol;
+      let rng = linkInfo.range || this.getLastRange();
+      const additionalTextLength = linkText.length - rng.toString().length;
+      if (additionalTextLength > 0 && this.isLimited(additionalTextLength)) {
+        return;
+      }
       const isTextChanged = rng.toString() !== linkText;
 
       // handle spaced urls from input
@@ -196,10 +211,10 @@ export default class Editor {
 
       if (this.options.onCreateLink) {
         linkUrl = this.options.onCreateLink(linkUrl);
-      } else {
-        // if url doesn't match an URL schema, set http:// as default
-        linkUrl = /^[A-Za-z][A-Za-z0-9+-.]*\:[\/\/]?/.test(linkUrl)
-          ? linkUrl : 'http://' + linkUrl;
+      } else if (checkProtocol) {
+        // if url doesn't have any protocol and not even a relative or a label, use http:// as default
+        linkUrl = /^([A-Za-z][A-Za-z0-9+-.]*\:|#|\/)/.test(linkUrl)
+          ? linkUrl : this.options.defaultProtocol + linkUrl;
       }
 
       let anchors = [];
@@ -211,7 +226,7 @@ export default class Editor {
         anchors = this.style.styleNodes(rng, {
           nodeName: 'A',
           expandClosestSibling: true,
-          onlyPartialContains: true
+          onlyPartialContains: true,
         });
       }
 
@@ -235,12 +250,14 @@ export default class Editor {
       const endRange = range.createFromNodeAfter(lists.last(anchors));
       const endPoint = endRange.getEndPoint();
 
-      range.create(
-        startPoint.node,
-        startPoint.offset,
-        endPoint.node,
-        endPoint.offset
-      ).select();
+      this.setLastRange(
+        range.create(
+          startPoint.node,
+          startPoint.offset,
+          endPoint.node,
+          endPoint.offset
+        ).select()
+      );
     });
 
     /**
@@ -264,7 +281,6 @@ export default class Editor {
      * @param {String} colorCode foreground color code
      */
     this.foreColor = this.wrapCommand((colorInfo) => {
-      document.execCommand('styleWithCSS', false, true);
       document.execCommand('foreColor', false, colorInfo);
     });
 
@@ -276,7 +292,7 @@ export default class Editor {
     this.insertTable = this.wrapCommand((dim) => {
       const dimension = dim.split('x');
 
-      const rng = this.createRange().deleteContents();
+      const rng = this.getLastRange().deleteContents();
       rng.insertNode(this.table.createTable(dimension[0], dimension[1], this.options));
     });
 
@@ -285,8 +301,8 @@ export default class Editor {
      */
     this.removeMedia = this.wrapCommand(() => {
       let $target = $(this.restoreTarget()).parent();
-      if ($target.parent('figure').length) {
-        $target.parent('figure').remove();
+      if ($target.closest('figure').length) {
+        $target.closest('figure').remove();
       } else {
         $target = $(this.restoreTarget()).detach();
       }
@@ -302,7 +318,7 @@ export default class Editor {
       const $target = $(this.restoreTarget());
       $target.toggleClass('note-float-left', value === 'left');
       $target.toggleClass('note-float-right', value === 'right');
-      $target.css('float', value);
+      $target.css('float', (value === 'none' ? '' : value));
     });
 
     /**
@@ -311,10 +327,15 @@ export default class Editor {
      */
     this.resize = this.wrapCommand((value) => {
       const $target = $(this.restoreTarget());
-      $target.css({
-        width: value * 100 + '%',
-        height: ''
-      });
+      value = parseFloat(value);
+      if (value === 0) {
+        $target.css('width', '');
+      } else {
+        $target.css({
+          width: value * 100 + '%',
+          height: '',
+        });
+      }
     });
   }
 
@@ -326,46 +347,85 @@ export default class Editor {
       }
       this.context.triggerEvent('keydown', event);
 
+      // keep a snapshot to limit text on input event
+      this.snapshot = this.history.makeSnapshot();
+      this.hasKeyShortCut = false;
       if (!event.isDefaultPrevented()) {
         if (this.options.shortcuts) {
-          this.handleKeyMap(event);
+          this.hasKeyShortCut = this.handleKeyMap(event);
         } else {
           this.preventDefaultEditableShortCuts(event);
         }
       }
       if (this.isLimited(1, event)) {
-        return false;
+        const lastRange = this.getLastRange();
+        if (lastRange.eo - lastRange.so === 0) {
+          return false;
+        }
+      }
+      this.setLastRange();
+
+      // record undo in the key event except keyMap.
+      if (this.options.recordEveryKeystroke) {
+        if (this.hasKeyShortCut === false) {
+          this.history.recordUndo();
+        }
       }
     }).on('keyup', (event) => {
+      this.setLastRange();
       this.context.triggerEvent('keyup', event);
     }).on('focus', (event) => {
+      this.setLastRange();
       this.context.triggerEvent('focus', event);
     }).on('blur', (event) => {
       this.context.triggerEvent('blur', event);
     }).on('mousedown', (event) => {
       this.context.triggerEvent('mousedown', event);
     }).on('mouseup', (event) => {
+      this.setLastRange();
+      this.history.recordUndo();
       this.context.triggerEvent('mouseup', event);
     }).on('scroll', (event) => {
       this.context.triggerEvent('scroll', event);
     }).on('paste', (event) => {
+      this.setLastRange();
       this.context.triggerEvent('paste', event);
+    }).on('input', () => {
+      // To limit composition characters (e.g. Korean)
+      if (this.isLimited(0) && this.snapshot) {
+        this.history.applySnapshot(this.snapshot);
+      }
     });
+
+    this.$editable.attr('spellcheck', this.options.spellCheck);
+
+    this.$editable.attr('autocorrect', this.options.spellCheck);
+
+    if (this.options.disableGrammar) {
+      this.$editable.attr('data-gramm', false);
+    }
 
     // init content before set event
     this.$editable.html(dom.html(this.$note) || dom.emptyPara);
 
     this.$editable.on(env.inputEventName, func.debounce(() => {
-      this.context.triggerEvent('change', this.$editable.html());
-    }, 100));
+      this.context.triggerEvent('change', this.$editable.html(), this.$editable);
+    }, 10));
 
-    this.$editor.on('focusin', (event) => {
+    this.$editable.on('focusin', (event) => {
       this.context.triggerEvent('focusin', event);
     }).on('focusout', (event) => {
       this.context.triggerEvent('focusout', event);
     });
 
-    if (!this.options.airMode) {
+    if (this.options.airMode) {
+      if (this.options.overrideContextMenu) {
+        this.$editor.on('contextmenu', (event) => {
+          this.context.triggerEvent('contextmenu', event);
+          return false;
+        });
+      }
+    } else {
       if (this.options.width) {
         this.$editor.outerWidth(this.options.width);
       }
@@ -381,6 +441,7 @@ export default class Editor {
     }
 
     this.history.recordUndo();
+    this.setLastRange();
   }
 
   destroy() {
@@ -401,13 +462,19 @@ export default class Editor {
     }
 
     const eventName = keyMap[keys.join('+')];
-    if (eventName) {
+
+    if (keyName === 'TAB' && !this.options.tabDisable) {
+      this.afterCommand();
+    } else if (eventName) {
       if (this.context.invoke(eventName) !== false) {
         event.preventDefault();
+        // if keyMap action was invoked
+        return true;
       }
     } else if (key.isEdit(event.keyCode)) {
       this.afterCommand();
     }
+    return false;
   }
 
   preventDefaultEditableShortCuts(event) {
@@ -423,6 +490,7 @@ export default class Editor {
 
     if (typeof event !== 'undefined') {
       if (key.isMove(event.keyCode) ||
+          key.isNavigation(event.keyCode) ||
           (event.ctrlKey || event.metaKey) ||
           lists.contains([key.code.BACKSPACE, key.code.DELETE], event.keyCode)) {
         return false;
@@ -430,7 +498,7 @@ export default class Editor {
     }
 
     if (this.options.maxTextLength > 0) {
-      if ((this.$editable.text().length + pad) >= this.options.maxTextLength) {
+      if ((this.$editable.text().length + pad) > this.options.maxTextLength) {
         return true;
       }
     }
@@ -442,7 +510,27 @@ export default class Editor {
    */
   createRange() {
     this.focus();
-    return range.create(this.editable);
+    this.setLastRange();
+    return this.getLastRange();
+  }
+
+  setLastRange(rng) {
+    if (rng) {
+      this.lastRange = rng;
+    } else {
+      this.lastRange = range.create(this.editable);
+
+      if ($(this.lastRange.sc).closest('.note-editable').length === 0) {
+        this.lastRange = range.createFromBodyElement(this.editable);
+      }
+    }
+  }
+
+  getLastRange() {
+    if (!this.lastRange) {
+      this.setLastRange();
+    }
+    return this.lastRange;
   }
 
   /**
@@ -453,9 +541,8 @@ export default class Editor {
    * @param {Boolean} [thenCollapse=false]
    */
   saveRange(thenCollapse) {
-    this.lastRange = this.createRange();
     if (thenCollapse) {
-      this.lastRange.collapse().select();
+      this.getLastRange().collapse().select();
     }
   }
 
@@ -513,7 +600,16 @@ export default class Editor {
   undo() {
     this.context.triggerEvent('before.command', this.$editable.html());
     this.history.undo();
-    this.context.triggerEvent('change', this.$editable.html());
+    this.context.triggerEvent('change', this.$editable.html(), this.$editable);
+  }
+
+  /*
+  * commit
+  */
+  commit() {
+    this.context.triggerEvent('before.command', this.$editable.html());
+    this.history.commit();
+    this.context.triggerEvent('change', this.$editable.html(), this.$editable);
   }
 
   /**
@@ -522,7 +618,7 @@ export default class Editor {
   redo() {
     this.context.triggerEvent('before.command', this.$editable.html());
     this.history.redo();
-    this.context.triggerEvent('change', this.$editable.html());
+    this.context.triggerEvent('change', this.$editable.html(), this.$editable);
   }
 
   /**
@@ -530,6 +626,10 @@ export default class Editor {
    */
   beforeCommand() {
     this.context.triggerEvent('before.command', this.$editable.html());
+
+    // Set styleWithCSS before run a command
+    document.execCommand('styleWithCSS', false, this.options.styleWithCSS);
+
     // keep focus on editable before command execution
     this.focus();
   }
@@ -542,7 +642,7 @@ export default class Editor {
     this.normalizeContent();
     this.history.recordUndo();
     if (!isPreventTrigger) {
-      this.context.triggerEvent('change', this.$editable.html());
+      this.context.triggerEvent('change', this.$editable.html(), this.$editable);
     }
   }
 
@@ -550,7 +650,7 @@ export default class Editor {
    * handle tab key
    */
   tab() {
-    const rng = this.createRange();
+    const rng = this.getLastRange();
     if (rng.isCollapsed() && rng.isOnCell()) {
       this.table.tab(rng);
     } else {
@@ -570,7 +670,7 @@ export default class Editor {
    * handle shift+tab key
    */
   untab() {
-    const rng = this.createRange();
+    const rng = this.getLastRange();
     if (rng.isCollapsed() && rng.isOnCell()) {
       this.table.tab(rng, true);
     } else {
@@ -584,7 +684,7 @@ export default class Editor {
    * run given function between beforeCommand and afterCommand
    */
   wrapCommand(fn) {
-    return () => {
+    return function() {
       this.beforeCommand();
       fn.apply(this, arguments);
       this.afterCommand();
@@ -612,8 +712,8 @@ export default class Editor {
       }
 
       $image.show();
-      range.create(this.editable).insertNode($image[0]);
-      range.createFromNodeAfter($image[0]).select();
+      this.getLastRange().insertNode($image[0]);
+      this.setLastRange(range.createFromNodeAfter($image[0]).select());
       this.afterCommand();
     }).fail((e) => {
       this.context.triggerEvent('image.upload.error', e);
@@ -624,7 +724,7 @@ export default class Editor {
    * insertImages
    * @param {File[]} files
    */
-  insertImages(files) {
+  insertImagesAsDataURL(files) {
     $.each(files, (idx, file) => {
       const filename = file.name;
       if (this.options.maximumImageFileSize && this.options.maximumImageFileSize < file.size) {
@@ -645,13 +745,12 @@ export default class Editor {
    */
   insertImagesOrCallback(files) {
     const callbacks = this.options.callbacks;
-
-    // If onImageUpload this.options setted
+    // If onImageUpload set,
     if (callbacks.onImageUpload) {
       this.context.triggerEvent('image.upload', files);
       // else insert Image as dataURL
     } else {
-      this.insertImages(files);
+      this.insertImagesAsDataURL(files);
     }
   }
 
@@ -660,7 +759,7 @@ export default class Editor {
    * @return {String} text
    */
   getSelectedText() {
-    let rng = this.createRange();
+    let rng = this.getLastRange();
 
     // if range on anchor, expand range with anchor
     if (rng.isOnAnchor()) {
@@ -672,17 +771,23 @@ export default class Editor {
 
   onFormatBlock(tagName, $target) {
     // [workaround] for MSIE, IE need `<`
-    tagName = env.isMSIE ? '<' + tagName + '>' : tagName;
-    document.execCommand('FormatBlock', false, tagName);
+    document.execCommand('FormatBlock', false, env.isMSIE ? '<' + tagName + '>' : tagName);
 
     // support custom class
     if ($target && $target.length) {
-      const className = $target[0].className || '';
-      if (className) {
-        const currentRange = this.createRange();
+      // find the exact element has given tagName
+      if ($target[0].tagName.toUpperCase() !== tagName.toUpperCase()) {
+        $target = $target.find(tagName);
+      }
 
-        const $parent = $([currentRange.sc, currentRange.ec]).closest(tagName);
-        $parent.addClass(className);
+      if ($target && $target.length) {
+        const className = $target[0].className || '';
+        if (className) {
+          const currentRange = this.createRange();
+
+          const $parent = $([currentRange.sc, currentRange.ec]).closest(tagName);
+          $parent.addClass(className);
+        }
       }
     }
   }
@@ -692,10 +797,11 @@ export default class Editor {
   }
 
   fontStyling(target, value) {
-    const rng = this.createRange();
+    const rng = this.getLastRange();
 
-    if (rng) {
+    if (rng !== '') {
       const spans = this.style.styleNodes(rng);
+      this.$editor.find('.note-status-output').html('');
       $(spans).css(target, value);
 
       // [workaround] added styled bogus span for style
@@ -705,9 +811,14 @@ export default class Editor {
         if (firstSpan && !dom.nodeLength(firstSpan)) {
           firstSpan.innerHTML = dom.ZERO_WIDTH_NBSP_CHAR;
           range.createFromNodeAfter(firstSpan.firstChild).select();
+          this.setLastRange();
           this.$editable.data(KEY_BOGUS, firstSpan);
         }
       }
+    } else {
+      const noteStatusOutput = $.now();
+      this.$editor.find('.note-status-output').html('<div id="note-status-output-' + noteStatusOutput + '" class="alert alert-info">' + this.lang.output.noSelection + '</div>');
+      setTimeout(function() { $('#note-status-output-' + noteStatusOutput).remove(); }, 5000);
     }
   }
 
@@ -717,11 +828,12 @@ export default class Editor {
    * @type command
    */
   unlink() {
-    let rng = this.createRange();
+    let rng = this.getLastRange();
     if (rng.isOnAnchor()) {
       const anchor = dom.ancestor(rng.sc, dom.isAnchor);
       rng = range.createFromNode(anchor);
       rng.select();
+      this.setLastRange();
 
       this.beforeCommand();
       document.execCommand('unlink');
@@ -740,18 +852,18 @@ export default class Editor {
    * @return {String} [return.url=""]
    */
   getLinkInfo() {
-    const rng = this.createRange().expand(dom.isAnchor);
-
+    const rng = this.getLastRange().expand(dom.isAnchor);
     // Get the first anchor on range(for edit).
     const $anchor = $(lists.head(rng.nodes(dom.isAnchor)));
     const linkInfo = {
       range: rng,
       text: rng.toString(),
-      url: $anchor.length ? $anchor.attr('href') : ''
+      url: $anchor.length ? $anchor.attr('href') : '',
     };
 
-    // Define isNewWindow when anchor exists.
+    // When anchor exists,
     if ($anchor.length) {
+      // Set isNewWindow by checking its target.
       linkInfo.isNewWindow = $anchor.attr('target') === '_blank';
       linkInfo.isNoFollow = $anchor.attr('rel') === 'nofollow';
     }
@@ -760,7 +872,7 @@ export default class Editor {
   }
 
   addRow(position) {
-    const rng = this.createRange(this.$editable);
+    const rng = this.getLastRange(this.$editable);
     if (rng.isCollapsed() && rng.isOnCell()) {
       this.beforeCommand();
       this.table.addRow(rng, position);
@@ -769,7 +881,7 @@ export default class Editor {
   }
 
   addCol(position) {
-    const rng = this.createRange(this.$editable);
+    const rng = this.getLastRange(this.$editable);
     if (rng.isCollapsed() && rng.isOnCell()) {
       this.beforeCommand();
       this.table.addCol(rng, position);
@@ -778,7 +890,7 @@ export default class Editor {
   }
 
   deleteRow() {
-    const rng = this.createRange(this.$editable);
+    const rng = this.getLastRange(this.$editable);
     if (rng.isCollapsed() && rng.isOnCell()) {
       this.beforeCommand();
       this.table.deleteRow(rng);
@@ -787,7 +899,7 @@ export default class Editor {
   }
 
   deleteCol() {
-    const rng = this.createRange(this.$editable);
+    const rng = this.getLastRange(this.$editable);
     if (rng.isCollapsed() && rng.isOnCell()) {
       this.beforeCommand();
       this.table.deleteCol(rng);
@@ -796,7 +908,7 @@ export default class Editor {
   }
 
   deleteTable() {
-    const rng = this.createRange(this.$editable);
+    const rng = this.getLastRange(this.$editable);
     if (rng.isCollapsed() && rng.isOnCell()) {
       this.beforeCommand();
       this.table.deleteTable(rng);
@@ -816,12 +928,12 @@ export default class Editor {
       const ratio = $target.data('ratio');
       imageSize = {
         width: ratio > newRatio ? pos.x : pos.y / ratio,
-        height: ratio > newRatio ? pos.x * ratio : pos.y
+        height: ratio > newRatio ? pos.x * ratio : pos.y,
       };
     } else {
       imageSize = {
         width: pos.x,
-        height: pos.y
+        height: pos.y,
       };
     }
 
